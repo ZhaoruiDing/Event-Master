@@ -36,31 +36,73 @@ public class MongoDBConnection implements DBConnection {
 	@Override
 	public void setFavoriteItems(String userId, List<String> itemIds) {
 		// TODO Auto-generated method stub
+		db.getCollection("users").updateOne(new Document("user_id", userId),
+				new Document("$push", new Document("favorite", new Document("$each", itemIds))));
 		
 	}
 
 	@Override
 	public void unsetFavoriteItems(String userId, List<String> itemIds) {
 		// TODO Auto-generated method stub
+		db.getCollection("users").updateOne(new Document("user_id", userId),
+				new Document("$pullAll", new Document("favorite", itemIds)));
 		
 	}
 
 	@Override
 	public Set<String> getFavoriteItemIds(String userId) {
 		// TODO Auto-generated method stub
-		return null;
+		Set<String> favoriteItems = new HashSet<String>();
+		FindIterable<Document> iterable = db.getCollection("users").find(eq("user_id", userId));
+		if (iterable.first().containsKey("favorite")) {
+			@SuppressWarnings("unchecked")
+			List<String> list = (List<String>) iterable.first().get("favorite");
+			favoriteItems.addAll(list);
+		}
+		return favoriteItems;
+
 	}
 
 	@Override
 	public Set<Item> getFavoriteItems(String userId) {
 		// TODO Auto-generated method stub
-		return null;
+		Set<String> itemIds = getFavoriteItemIds(userId);
+		Set<Item> favoriteItems = new HashSet<>();
+		for (String itemId : itemIds) {
+			FindIterable<Document> iterable = db.getCollection("items").find(eq("item_id", itemId));
+			if (iterable.first() != null) {
+				Document doc = iterable.first();
+				ItemBuilder builder = new ItemBuilder();
+
+				builder.setItemId(doc.getString("item_id"));
+				builder.setName(doc.getString("name"));
+				builder.setRating(doc.getDouble("rating"));
+				builder.setAddress(doc.getString("address"));
+				builder.setImageUrl(doc.getString("image_url"));
+				builder.setUrl(doc.getString("url"));
+				builder.setDistance(doc.getDouble("distance"));
+				builder.setCategories(getCategories(itemId));
+
+				favoriteItems.add(builder.build());
+			}
+		}
+		return favoriteItems;
+
 	}
 
 	@Override
 	public Set<String> getCategories(String itemId) {
 		// TODO Auto-generated method stub
-		return null;
+		Set<String> categories = new HashSet<>();
+		FindIterable<Document> iterable = db.getCollection("items").find(eq("item_id", itemId));
+
+		@SuppressWarnings("unchecked")
+		List<String> list = (List<String>) iterable.first().get("categories");
+		if (list != null) {
+			categories.addAll(list);
+		}
+		return categories;
+
 	}
 
 	@Override
@@ -95,13 +137,18 @@ public class MongoDBConnection implements DBConnection {
 	@Override
 	public String getFullname(String userId) {
 		// TODO Auto-generated method stub
-		return null;
+		FindIterable<Document> iterable = db.getCollection("users").find(eq("user_id", userId));
+		Document document = iterable.first();
+		String firstName = document.getString("first_name");
+		String lastName = document.getString("last_name");
+		return firstName + " " + lastName;
 	}
 
 	@Override
 	public boolean verifyLogin(String userId, String password) {
 		// TODO Auto-generated method stub
-		return false;
+		FindIterable<Document> iterable = db.getCollection("users").find(eq("user_id", userId));
+		return (iterable.first() != null) && (iterable.first().getString("password").equals(password));
 	}
 
 }
